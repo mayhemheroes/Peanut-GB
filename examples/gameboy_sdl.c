@@ -344,6 +344,7 @@ int main(int argc, char **argv)
 			/* Entries with different palettes for BG, OBJ0 & OBJ1 are not
 			 * yet supported. */
 		};
+		static uint8_t interlaced = 0;
 
 		/* Get joypad input. */
 		while(SDL_PollEvent(&event))
@@ -413,9 +414,16 @@ int main(int argc, char **argv)
 		 * defined in the palette. */
 		for (unsigned int y = 0; y < height; y++)
 		{
+			if((interlaced == 0 && (y & 1) == 0) ||
+					(interlaced == 1 && (y & 1) == 1))
+				continue;
+
 			for (unsigned int x = 0; x < width; x++)
 				fb[y][x] = palette[selected_palette][gb.gb_fb[y][x] & 3];
 		}
+
+		/* Update other set of lines next frame. */
+		interlaced = !interlaced;
 
 		/* Copy frame buffer to SDL screen. */
 		SDL_UpdateTexture(texture, NULL, &fb, width * sizeof(uint16_t));
