@@ -22,10 +22,14 @@
  * IN THE SOFTWARE.
  */
 
+#pragma once
+
 #include <stdint.h>	/* Required for int types */
 #include <time.h>	/* Required for tm struct */
 
 #include <assert.h>
+
+#include "apu.h"
 
 /* Enable sound support, including sound registers. Off by default due to no
  * implementation. */
@@ -153,6 +157,7 @@
 #ifndef MIN
 	#define MIN(a, b)   ((a) < (b) ? (a) : (b))
 #endif
+
 
 struct cpu_registers_s
 {
@@ -511,12 +516,14 @@ struct gb_s
 		/* Implementation defined data. Set to NULL if not required. */
 		void *priv;
 	} direct;
+
+	struct apu_s apu;
 };
 
 /**
  * Tick the internal RTC by one second.
  */
-void gb_sick_rtc(struct gb_s *gb)
+void gb_tick_rtc(struct gb_s *gb)
 {
 	/* is timer running? */
 	if((gb->cart_rtc[4] & 0x40) == 0)
@@ -637,7 +644,7 @@ uint8_t __gb_read(struct gb_s *gb, const uint_fast16_t addr)
 #if ENABLE_SOUND
 			return audio_read(addr);
 #else
-			return 1;
+			return GB_apu_read(&gb->apu, addr & 0xFF);
 #endif
 		}
 
@@ -865,6 +872,7 @@ void __gb_write(struct gb_s *gb, const uint_fast16_t addr, const uint8_t val)
 #if ENABLE_SOUND
 			audio_write(addr, val);
 #endif
+			GB_apu_write(&gb->apu, addr & 0xFF, val);
 			return;
 		}
 
@@ -3423,11 +3431,17 @@ void __gb_step_cpu(struct gb_s *gb)
 	/* DIV register timing */
 	gb->counter.div_count += inst_cycles;
 
+	gb->apu.apu_cycles += inst_cycles;
+
 	if(gb->counter.div_count >= DIV_CYCLES)
 	{
 		gb->gb_reg.DIV++;
 		gb->counter.div_count -= DIV_CYCLES;
+
+		GB_apu_div_event(&gb->apu);
 	}
+
+	GB_apu_run(&gb->apu);
 
 	/* Check serial transfer. */
 	if(gb->gb_reg.SC & 0x80)
@@ -3702,6 +3716,7 @@ enum gb_init_error_e gb_init(struct gb_s *gb,
 	gb->display.lcd_draw_line = NULL;
 
 	gb_reset(gb);
+	GB_apu_init(&gb->apu);
 
 	return GB_INIT_NO_ERROR;
 }

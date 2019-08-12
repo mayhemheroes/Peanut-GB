@@ -29,13 +29,17 @@ endif
 LDLIBS += $(SDL2_LDLIBS)
 
 # Enable sound by default
-SOUND ?= yes
-ifeq ($(SOUND),yes)
+SOUND ?= sameboy
+ifeq ($(SOUND),blargg)
 	SOUND_OBJECTS = gb_apu/audio.o gb_apu/Basic_Gb_Apu.o \
 			gb_apu/Blip_Buffer.o gb_apu/Gb_Apu.o gb_apu/Gb_Oscs.o \
 			gb_apu/Multi_Buffer.o
 	# Enable sound support definitions within peanut_gb and peanut_sdl
-	CFLAGS += -D ENABLE_SOUND
+	CFLAGS += -D ENABLE_BARGG_SOUND
+endif
+ifeq ($(SOUND),sameboy)
+	SOUND_OBJECTS = ../../apu.o
+	CFLAGS += -D ENABLE_SAMEBOY_SOUND
 endif
 
 # Enable LCD by default
@@ -122,7 +126,7 @@ clean:
 help:
 	@echo Options:
 	@echo \ STATIC=yes\	Enable static build. Default on Windows.
-	@echo \ SOUND=yes\	Enable sound output using Gb_Snd_Emu. Default.
+	@echo \ SOUND=sameboy\	Enable sound output using Sameboy, Gb_Snd_Emu or none. Default is Sameboy.
 	@echo \ FILEGUI=yes\	Enable graphical file picker. Default.
 	@echo
 	@echo Values other than \"yes\" will disable the option.

@@ -15,11 +15,12 @@
 
 #include <SDL2/SDL.h>
 
-#if ENABLE_SOUND
+#if ENABLE_BLARGG_SOUND
 	#include "gb_apu/audio.h"
 #endif
 
 #include "../../peanut_gb.h"
+
 #include "nativefiledialog/src/include/nfd.h"
 #include "bmp.h"
 
@@ -604,13 +605,30 @@ void save_lcd_bmp(struct gb_s* gb, uint16_t fb[LCD_HEIGHT][LCD_WIDTH])
 	fflush(stdout);
 }
 
+void audio_callback(struct apu_s *apu, GB_sample_t *sample)
+{
+	SDL_AudioDeviceID *dev = apu->priv;
+
+#if 0
+	if (SDL_GetQueuedAudioSize(1) / sizeof(*sample) > 48000 / 4) {
+		return;
+	}
+#endif
+
+	if(SDL_QueueAudio(*dev, sample, sizeof(*sample)) != 0)
+	{
+		printf("Error: %s\n", SDL_GetError());
+		abort();
+	}
+}
+
 int main(int argc, char **argv)
 {
 	struct gb_s gb;
 	struct priv_t priv =
 	{
 		.rom = NULL,
-		.cart_ram = NULL
+		.cart_ram = NULL,
 	};
 	const double target_speed_ms = 1000.0 / VERTICAL_SYNC;
 	double speed_compensation = 0.0;
@@ -724,6 +742,7 @@ int main(int argc, char **argv)
 
 	/* TODO: Sanity check input GB file. */
 
+	memset(&gb, 0, sizeof(gb));
 	/* Initialise emulator context. */
 	gb_ret = gb_init(&gb, &gb_rom_read, &gb_cart_ram_read, &gb_cart_ram_write,
 			 &gb_error, &priv);
@@ -785,9 +804,35 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-#if ENABLE_SOUND
 	SDL_AudioDeviceID dev;
+#if ENABLE_BLARGG_SOUND
 	audio_init(&dev);
+#else
+	{
+		const unsigned sample_rate = 48000;
+		SDL_AudioSpec want, have;
+
+		GB_set_sample_rate(&gb.apu, sample_rate);
+
+		want.freq = sample_rate;
+		want.format = AUDIO_S16SYS;
+		want.channels = 2;
+		want.samples = 1024;
+		want.callback = NULL; //Using SDL_QueueAudio() instead.
+		want.userdata = NULL;
+
+		printf("Audio driver: %s\n", SDL_GetAudioDeviceName(0, 0));
+
+		if((dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0)) == 0)
+		{
+			printf("SDL could not open audio device: %s\n", SDL_GetError());
+			exit(EXIT_FAILURE);
+		}
+
+		gb.apu.priv = &dev;
+		GB_apu_set_sample_callback(&gb.apu, &audio_callback);
+		SDL_PauseAudioDevice(dev, 0);
+	}
 #endif
 #if ENABLE_LCD
 	gb_init_lcd(&gb, &lcd_draw_line);
@@ -1128,7 +1173,7 @@ int main(int argc, char **argv)
 		if(rtc_timer >= 1000)
 		{
 			rtc_timer -= 1000;
-			gb_sick_rtc(&gb);
+			gb_tick_rtc(&gb);
 		}
 
 		/* Skip frames during fast mode. */
@@ -1142,7 +1187,7 @@ int main(int argc, char **argv)
 
 		fast_mode_timer = fast_mode;
 
-#if ENABLE_SOUND
+#if ENABLE_BLARGG_SOUND
 		/* Process audio. */
 		audio_frame();
 #endif
@@ -1188,7 +1233,7 @@ int main(int argc, char **argv)
 			if(rtc_timer >= 1000)
 			{
 				rtc_timer -= 1000;
-				gb_sick_rtc(&gb);
+				gb_tick_rtc(&gb);
 
 				/* If 60 seconds has passed, record save file.
 				 * We do this because the external audio library
@@ -1202,7 +1247,7 @@ int main(int argc, char **argv)
 
 				if(!save_timer)
 				{
-#if ENABLE_SOUND
+#if ENABLE_BLARGG_SOUND
 					/* Locking the audio thread to reduce
 					 * possibility of abort during save. */
 					SDL_LockAudioDevice(dev);
@@ -1210,7 +1255,7 @@ int main(int argc, char **argv)
 					write_cart_ram_file(save_file_name,
 							    &priv.cart_ram,
 							    gb_get_save_size(&gb));
-#if ENABLE_SOUND
+#if ENABLE_BLARGG_SOUND
 					SDL_UnlockAudioDevice(dev);
 #endif
 					save_timer = 60;
@@ -1233,7 +1278,7 @@ int main(int argc, char **argv)
 	SDL_DestroyTexture(texture);
 	SDL_GameControllerClose(controller);
 	SDL_Quit();
-#if ENABLE_SOUND
+#if ENABLE_BLARGG_SOUND
 	audio_cleanup();
 #endif
 
