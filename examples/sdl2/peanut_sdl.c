@@ -746,9 +746,14 @@ int main(int argc, char **argv)
 	/* Set the RTC of the game cartridge. Only used by games that support it. */
 	{
 		time_t rawtime;
-		struct tm *timeinfo;
+		struct tm timeinfo;
 		time(&rawtime);
-		timeinfo = localtime(&rawtime);
+#if !_POSIX_C_SOURCE
+		localtime_r(&rawtime, &timeinfo);
+#else
+		struct tm *ti = localtime(&rawtime);
+		timeinfo = *ti;
+#endif
 
 		/* You could potentially force the game to allow the player to
 		 * reset the time by setting the RTC to invalid values.
@@ -765,7 +770,7 @@ int main(int argc, char **argv)
 
 		/* Set RTC. Only games that specify support for RTC will use
 		 * these values. */
-		gb_set_rtc(&gb, timeinfo);
+		gb_set_rtc(&gb, &timeinfo);
 	}
 
 	/* Initialise frontend implementation, in this case, SDL2. */
