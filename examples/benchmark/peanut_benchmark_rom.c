@@ -1,9 +1,11 @@
+#define PEANUT_GB_HIGH_LCD_ACCURACY 0
 #define ENABLE_SOUND 0
 #define ENABLE_LCD 1
 
 /* Import emulator library. */
-#include "../../peanut_gb.h"
+#include "peanut_gb.h"
 
+#include <stdint.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
@@ -30,6 +32,12 @@ uint8_t gb_rom_read(struct gb_s *gb, const uint_fast32_t addr)
 	return p->rom[addr];
 }
 
+uint8_t *gb_rom_read_ptr(struct gb_s *gb, const uint_fast32_t addr)
+{
+	const struct priv_t * const p = gb->direct.priv;
+	return &p->rom[addr];
+}
+
 /**
  * Returns a byte from the cartridge RAM at the given address.
  */
@@ -37,6 +45,15 @@ uint8_t gb_cart_ram_read(struct gb_s *gb, const uint_fast32_t addr)
 {
 	const struct priv_t * const p = gb->direct.priv;
 	return p->cart_ram[addr];
+}
+
+/**
+ * Returns a byte from the cartridge RAM at the given address.
+ */
+uint8_t *gb_cart_ram_read_ptr(struct gb_s *gb, const uint_fast32_t addr)
+{
+	const struct priv_t * const p = gb->direct.priv;
+	return &p->cart_ram[addr];
 }
 
 /**
@@ -131,7 +148,6 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 	}
 
-	for(unsigned int i = 0; i < 5; i++)
 	{
 		/* Start benchmark. */
 		struct gb_s gb;
