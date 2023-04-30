@@ -12,18 +12,22 @@
 // Ram was max 64k
 #define RAM_SIZE 65536
 
-// Cartridge rom was max 8M
-#define ROM_SIZE 8388608
-
 uint8_t ram[RAM_SIZE];
-uint8_t rom[ROM_SIZE];
+
+struct priv_t
+{
+	/* Pointer to allocated memory holding GB file. */
+	const uint8_t *rom;
+	size_t rom_size;
+};
 
 /**
  * Returns a byte from the ROM file at the given address.
  */
 uint8_t gb_rom_read(struct gb_s *gb, const uint_fast32_t addr)
 {
-    return rom[addr];
+    const struct priv_t * const p = gb->direct.priv;
+    return p->rom[addr % p->rom_size];
 }
 
 /**
@@ -31,7 +35,7 @@ uint8_t gb_rom_read(struct gb_s *gb, const uint_fast32_t addr)
  */
 uint8_t gb_cart_ram_read(struct gb_s *gb, const uint_fast32_t addr)
 {
-	return ram[addr];
+	return ram[addr % RAM_SIZE];
 }
 
 /**
@@ -40,7 +44,7 @@ uint8_t gb_cart_ram_read(struct gb_s *gb, const uint_fast32_t addr)
 void gb_cart_ram_write(struct gb_s *gb, const uint_fast32_t addr,
 	const uint8_t val)
 {
-	ram[addr] = val;
+	ram[addr % RAM_SIZE] = val;
 }
 
 /**
@@ -58,10 +62,11 @@ void gb_error(struct gb_s *gb, const enum gb_error_e gb_err, const uint16_t val)
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     if (Size > 0) {
         struct gb_s gb;
-        memset(rom, 0, 8196);
-        memcpy(rom, Data, Size);
+        struct priv_t priv;
+        priv.rom = Data;
+        priv.rom_size = Size;
         enum gb_init_error_e ret = gb_init(&gb, &gb_rom_read, &gb_cart_ram_read, &gb_cart_ram_write,
-                &gb_error, NULL);
+                &gb_error, &priv);
 
         if(ret != GB_INIT_NO_ERROR)
         {
