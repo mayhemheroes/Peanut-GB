@@ -1,0 +1,6 @@
+project: peanut-gb
+target: gb-fuzz
+
+cmds:
+    - cmd: ./gb-fuzz
+      libfuzzer: true
