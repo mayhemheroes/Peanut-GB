@@ -70,7 +70,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
 
         if(ret != GB_INIT_NO_ERROR)
         {
-            return 0;
+            return -1;
         }
         
         uint8_t counter = 0;
