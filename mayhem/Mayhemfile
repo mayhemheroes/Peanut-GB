@@ -1,0 +1,9 @@
+project: peanut-gb
+target: gb-fuzz
+
+testsuite:
+  - file://mayhem/corpus
+
+cmds:
+    - cmd: ./gb-fuzz
+      libfuzzer: true
